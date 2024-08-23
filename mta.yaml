@@ -1,0 +1,154 @@
+_schema-version: "3.1"
+ID: com.dscgmbh.issueBatch.replace_me
+description: DSC - issueBatch CAP
+version: 1.6.10
+
+#########################################################################
+# Allgemeine Parameter
+#########################################################################
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+
+#########################################################################
+# Build Paramter
+#########################################################################
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npx -p @sap/cds-dk cds build --production
+
+#########################################################################
+# Build Module
+#########################################################################
+modules:
+  # CAP CDS Service
+  - name: com.dscgmbh.issueBatch.replace_me-service
+    type: nodejs
+    path: gen/srv # In welchem Order sind die Dateien die in dern Service gepackt werden sollen
+    requires: # Benötigt:
+      - name: com.dscgmbh.issueBatch.replace_me.destination # BTP Destiantion
+      - name: com.dscgmbh.issueBatch.replace_me.xsuaa # BTP Userverwaltung
+    provides: # Stellt bereit:
+      - name: var_payint-service # Platzhalter - srv-api
+        properties:
+          service-url: ${default-url} # Geneerierte URL des Service in der CF
+    parameters:
+      buildpack: nodejs_buildpack
+      stack: cflinuxfs4
+      disk-quota: 256M
+      memory: 256M
+      keep-existing-routes: true
+      routes: # if not defined, a default route would be auto assigned unless no-route is specified
+        - route: ${default-uri}
+      #Setting env variables to showcase the default/generated values provided by the mta deployer
+      properties:
+        default-host: ${default-host} #usually generated using the <org-name>-<space-name>-<module-name>
+        default-domain: ${default-domain} #the default shared domain of the landscape
+        default-uri: ${default-uri} #composed by ${host}.${domain}
+        protocol: ${protocol} #usually defaults to "http"
+        default-url: ${default-url} # composed of ${protocol}://${default-uri}
+    build-parameters:
+      builder: npm-ci
+      ignore:
+        - default-env.json
+        - ./node_modules/
+
+  # HTML5 App Repo Inhalt
+  - name: com.dscgmbh.issueBatch.replace_me.html.content
+    type: com.sap.application.content
+    path: ./resources
+    requires: # Benötigt:
+      - name: com.dscgmbh.issueBatch.replace_me.html.host # Name der Repo Host Ressource die den App Inhalt aufnhmen soll
+        parameters:
+          content-target: true
+
+  # Konfiguration des Destination Services
+  # HTML5 App Repo Inhalt
+  - name: com.dscgmbh.issueBatch.replace_me.destination.html
+    type: com.sap.application.content
+    requires:
+      - name: com.dscgmbh.issueBatch.replace_me.destination
+        parameters:
+          content-target: true
+      - name: com.dscgmbh.issueBatch.replace_me.html.host
+        parameters:
+          service-key:
+            name: com.dscgmbh.issueBatch.replace_me.html.host-key
+      - name: com.dscgmbh.issueBatch.replace_me.xsuaa
+        parameters:
+          service-key:
+            name: com.dscgmbh.issueBatch.replace_me.xsuaa-key
+    parameters:
+      content:
+        instance:
+          destinations:
+            - Name: com-dscgmbh-payint-xsuaa
+              Authentication: OAuth2UserTokenExchange
+              ServiceInstanceName: com.dscgmbh.issueBatch.replace_me.xsuaa
+              ServiceKeyName: com.dscgmbh.issueBatch.replace_me.xsuaa-key
+              sap.cloud.service: com.dscgmbh.issueBatch.replace_me
+            - Name: com-dscgmbh-payint-html-host
+              ServiceInstanceName: com.dscgmbh.issueBatch.replace_me.html.host
+              ServiceKeyName: com.dscgmbh.issueBatch.replace_me.html.host-key
+              sap.cloud.service: com.dscgmbh.issueBatch.replace_me
+          existing_destinations_policy: ignore
+    build-parameters:
+      no-source: true
+
+#########################################################################
+# Resourcen der CF
+#########################################################################
+resources:
+  #########################################################################
+  # Zugriff auf das XSUAA
+  #########################################################################
+  - name: com.dscgmbh.issueBatch.replace_me.xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      config:
+        xsappname: "com-dscgmbh-issueBatch-replace_me-${space}"
+      path: ./xs-security.json # Konfigurationsdatei
+      service: xsuaa # Wir brauchen dern CF XSUAA Berechtigungsservice
+      service-name: com.dscgmbh.issueBatch.replace_me.xsuaa # Name des Service der angelegt wird
+      service-plan: application #
+
+  #########################################################################
+  # Zugriff auf den Destiantion Servive
+  #########################################################################
+  - name: com.dscgmbh.issueBatch.replace_me.destination
+    type: org.cloudfoundry.managed-service
+    requires:
+      - name: var_payint-service
+    parameters:
+      config: # Konfiguration
+        HTML5Runtime_enabled: true # Darf die HTML5 Runtime diese Destination nutzen um nach verknüpften HTML5-Repos zu suchen?
+        init_data: # Initale Konfiguration
+          instance:
+            destinations: # Anlagen der folgenden Destinationen
+              - Name: com-dscgmbh-payint-cap-srv # Zugriff auf den CAP CDS Service (dieser Anwendung)
+                Description: CAP PayInt service
+                Authentication: NoAuthentication
+                ProxyType: Internet
+                Type: HTTP
+                URL: ~{var_payint-service/service-url} # URL ist erst im laufe des Deploy bekannt daum hier als Platzhalter
+                HTML5.DynamicDestination: true # siehe auch das module: com.dscgmbh.issueBatch.replace_me-service => provides
+                HTML5.ForwardAuthToken: true
+              - Name: ui5
+                ProxyType: Internet
+                Type: HTTP
+                URL: https://ui5.sap.com
+                Authentication: NoAuthentication
+            existing_destinations_policy: update
+      service: destination
+      service-name: com.dscgmbh.issueBatch.replace_me.destination
+      service-plan: lite
+      version: 1.0.0
+
+  - name: com.dscgmbh.issueBatch.replace_me.html.host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-name: com.dscgmbh.issueBatch.replace_me.html.host
+      service-plan: app-host

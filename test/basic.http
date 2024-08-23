@@ -1,0 +1,55 @@
+### FAILS
+POST http://localhost:4004/odata/v4/main-service/$batch HTTP/1.1
+Accept: multipart/mixed
+Content-Type: multipart/mixed; boundary=batch_id-1724226111787-210
+
+
+--batch_id-1724226111787-210
+Content-Type:application/http
+Content-Transfer-Encoding:binary
+
+POST Belege HTTP/1.1
+Accept:application/json;odata.metadata=minimal;IEEE754Compatible=true
+Accept-Language:de
+Content-Type:application/json;charset=UTF-8;IEEE754Compatible=true
+
+{"dfref":"HAfjreijfiorejfioem--"}
+--batch_id-1724226111787-210--
+Group ID: $auto
+
+
+### DOES work
+POST http://localhost:4004/odata/v4/main-service/$batch HTTP/1.1
+Accept: multipart/mixed
+Content-Type: multipart/mixed; boundary=batch_id-1724226111787-210
+
+
+--batch_id-1724226111787-210
+Content-Type:application/http
+Content-Transfer-Encoding:binary
+
+POST Belege HTTP/1.1
+Accept:application/json;odata.metadata=minimal;IEEE754Compatible=true
+Accept-Language:de
+Content-Type:application/json;charset=UTF-8;IEEE754Compatible=true
+
+{"hash":"HAAA-X"}
+--batch_id-1724226111787-210--
+Group ID: $auto
+
+
+### DOES work
+POST http://localhost:4004/odata/v4/main-service/Belege HTTP/1.1
+Accept:application/json;odata.metadata=minimal;IEEE754Compatible=true
+Accept-Language:de
+Content-Type:application/json;charset=UTF-8;IEEE754Compatible=true
+
+{"hash":"HAA--"}
+
+### DOES work
+POST http://localhost:4004/odata/v4/main-service/Belege HTTP/1.1
+Accept:application/json;odata.metadata=minimal;IEEE754Compatible=true
+Accept-Language:de
+Content-Type:application/json;charset=UTF-8;IEEE754Compatible=true
+
+{"hash":"HAAA-X"}

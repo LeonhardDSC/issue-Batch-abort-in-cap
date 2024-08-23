@@ -1,0 +1,69 @@
+{
+  "name": "com.dscgmbh.issueBatch.replace_me.js",
+  "version": "1.0.0",
+  "description": "A simple CAP project.",
+  "repository": "<Add your repository here>",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "npm": ">8.0.0",
+    "node": ">18.0.0"
+  },
+  "workspaces": [
+    "./app/*"
+  ],
+  "scripts": {
+    "start": "cds run --with-mocks --in-memory",
+    "watch-hybrid": "cds watch --profile hybrid",
+    "deploy": "cf deploy mta_archives/%npm_package_name%_%npm_package_version%.mtar --retries 1",
+    "undeploy": "cf undeploy %npm_package_name% --delete-services --delete-service-keys --delete-service-brokers",
+    "fix-db": "cds deploy --to sqlite",
+    "dump-db": "sqlite3 ./db.sqlite .dump > dump.txt",
+    "clean-db": "rimraf sqlite.db",
+    "build": "npm run build:cf --workspaces --if-present",
+    "clean": "npm run cleanup --workspaces --if-present",
+    "predeploy": "npm run build",
+    "prebuild": "npm run clean && npm run genAPI",
+    "copy": "copyfiles -f \"./app/**/dist/zip/*.zip\" ./resources",
+    "postbuild": "npm run copy && npx mbt build --mtar %npm_package_name%_%npm_package_version%.mtar",
+    "postclean": "rimraf resources && rimraf gen && rimraf mta_archives",
+    "bind": "cds bind -2 %npm_package_name%.destination,%npm_package_name%.xsuaa"
+  },
+  "dependencies": {
+    "@sap/cds": "8.1.1",
+    "@sap/cds-common-content": "2.1.0",
+    "@sap/cds-fiori": "1.2.7",
+    "@cap-js/sqlite": "1.7.3"
+  },
+  "devDependencies": {
+    "@sap/cds-dk": "8.1.2",
+    "cds-launchpad-plugin": "2.2.0",
+    "cds-swagger-ui-express": "0.9.0",
+    "rimraf": "6.0.1"
+  },
+  "eslintConfig": {
+    "extends": "eslint:recommended",
+    "env": {
+      "es2020": true,
+      "node": true,
+      "jest": true,
+      "mocha": true
+    },
+    "globals": {
+      "SELECT": true,
+      "INSERT": true,
+      "UPDATE": true,
+      "DELETE": true,
+      "CREATE": true,
+      "DROP": true,
+      "CDL": true,
+      "CQL": true,
+      "CXL": true,
+      "cds": true
+    },
+    "rules": {
+      "no-console": "off",
+      "require-atomic-updates": "off"
+    }
+  }
+}
